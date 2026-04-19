@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>androlocal bridge test</title>
+  <style>
+    :root {
+      color-scheme: light;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f7f7f9;
+      color: #1a1a1a;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 24px;
+    }
+    #summary {
+      margin: 0 0 16px;
+      font-weight: 600;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid #e1e1e6;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e1e1e6;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    th {
+      background: #f0f1f5;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .pass {
+      color: #138a36;
+      font-weight: 700;
+    }
+    .fail {
+      color: #c52b2b;
+      font-weight: 700;
+    }
+    code {
+      word-break: break-word;
+    }
+    .notice {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid #f0c7c7;
+      background: #fff2f2;
+      color: #902626;
+    }
+  </style>
+</head>
+<body>
+  <h1>androlocal bridge test</h1>
+  <p id="summary">0 / 10 passed</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Test</th>
+        <th>Status</th>
+        <th>Result</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div id="notice"></div>
+
+  <script>
+    function bridgeGet(key) {
+      const result = AndroidBridge.storageGet(key);
+      return result === "__androlocal_null__" ? null : result;
+    }
+
+    async function runTests() {
+      const results = [];
+
+      function assert(name, condition, result) {
+        results.push({ name, pass: condition, result: String(result) });
+      }
+
+      try {
+        const r = AndroidBridge.storageSet("test_key", "\"hello world\"");
+        assert("1. storageSet", r === "ok", r);
+      } catch (e) {
+        assert("1. storageSet", false, e.message);
+      }
+
+      try {
+        const r = bridgeGet("test_key");
+        assert("2. storageGet existing", r === "\"hello world\"", r);
+      } catch (e) {
+        assert("2. storageGet existing", false, e.message);
+      }
+
+      try {
+        const r = AndroidBridge.storageKeys();
+        const keys = JSON.parse(r);
+        assert("3. storageKeys", Array.isArray(keys) && keys.includes("test_key"), r);
+      } catch (e) {
+        assert("3. storageKeys", false, e.message);
+      }
+
+      try {
+        const r = AndroidBridge.storageDelete("test_key");
+        assert("4. storageDelete", r === "ok", r);
+      } catch (e) {
+        assert("4. storageDelete", false, e.message);
+      }
+
+      try {
+        const r = bridgeGet("test_key");
+        assert("5. storageGet missing", r === null, r);
+      } catch (e) {
+        assert("5. storageGet missing", false, e.message);
+      }
+
+      try {
+        const r = AndroidBridge.storageClear();
+        assert("6. storageClear", r === "ok", r);
+      } catch (e) {
+        assert("6. storageClear", false, e.message);
+      }
+
+      try {
+        const r = AndroidBridge.dbQuery(
+          "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY AUTOINCREMENT, val TEXT)",
+          null
+        );
+        const parsed = JSON.parse(r);
+        assert("7. db CREATE TABLE", !parsed.error, r);
+      } catch (e) {
+        assert("7. db CREATE TABLE", false, e.message);
+      }
+
+      try {
+        const r = AndroidBridge.dbQuery("INSERT INTO test (val) VALUES (?)", "[\"hello\"]");
+        const parsed = JSON.parse(r);
+        assert("8. db INSERT", parsed.changes === 1, r);
+      } catch (e) {
+        assert("8. db INSERT", false, e.message);
+      }
+
+      try {
+        const r = AndroidBridge.dbQuery("SELECT * FROM test", null);
+        const rows = JSON.parse(r);
+        assert("9. db SELECT", Array.isArray(rows) && rows.length === 1 && rows[0].val === "hello", r);
+      } catch (e) {
+        assert("9. db SELECT", false, e.message);
+      }
+
+      try {
+        const r = AndroidBridge.dbQuery("DELETE FROM test WHERE id = ?", "[1]");
+        const parsed = JSON.parse(r);
+        assert("10. db DELETE", parsed.changes === 1, r);
+      } catch (e) {
+        assert("10. db DELETE", false, e.message);
+      }
+
+      renderResults(results);
+    }
+
+    function renderResults(results) {
+      const passed = results.filter(r => r.pass).length;
+      document.getElementById("summary").textContent = `${passed} / ${results.length} passed`;
+      const tbody = document.getElementById("tbody");
+      tbody.innerHTML = "";
+      results.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.name}</td>
+          <td style="color:${r.pass ? "#16a34a" : "#dc2626"};font-weight:600">${r.pass ? "PASS" : "FAIL"}</td>
+          <td><code>${r.result}</code></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      if (!window.AndroidBridge) {
+        document.getElementById("summary").textContent = "AndroidBridge not available — run inside the shell APK";
+        return;
+      }
+      runTests();
+    });
+  </script>
+</body>
+</html>
