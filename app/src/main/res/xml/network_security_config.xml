@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Cleartext permitted: Portl is a local-dev sideloading tool, not a Play Store app -->
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

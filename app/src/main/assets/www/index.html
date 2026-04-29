@@ -64,7 +64,7 @@
 </head>
 <body>
   <h1>androlocal bridge test</h1>
-  <p id="summary">0 / 10 passed</p>
+  <p id="summary">0 / 0 passed</p>
   <table>
     <thead>
       <tr>
@@ -166,6 +166,25 @@
         assert("10. db DELETE", parsed.changes === 1, r);
       } catch (e) {
         assert("10. db DELETE", false, e.message);
+      }
+
+      try {
+        const simulatedRemoteWindow = {
+          location: { href: "http://192.168.1.2:5173" },
+          AndroidBridge: window.AndroidBridge
+        };
+        const key = "bridge_test_remote";
+        const setResult = simulatedRemoteWindow.AndroidBridge.storageSet(key, "\"ok\"");
+        const getResult = simulatedRemoteWindow.AndroidBridge.storageGet(key);
+        const deleteResult = simulatedRemoteWindow.AndroidBridge.storageDelete(key);
+        const passed = setResult === "ok" && getResult === "\"ok\"" && deleteResult === "ok";
+        assert(
+          "11. bridge simulated remote context",
+          passed,
+          JSON.stringify({ url: simulatedRemoteWindow.location.href, setResult, getResult, deleteResult })
+        );
+      } catch (e) {
+        assert("11. bridge simulated remote context", false, e.message);
       }
 
       renderResults(results);

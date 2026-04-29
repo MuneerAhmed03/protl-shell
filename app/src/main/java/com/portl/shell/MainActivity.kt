@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -16,6 +17,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
@@ -37,15 +39,20 @@ class MainActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.allowFileAccess = true
-            settings.allowContentAccess = true
-            @Suppress("DEPRECATION")
-            settings.databaseEnabled = true
-            settings.setSupportZoom(false)
-            settings.builtInZoomControls = false
-            settings.displayZoomControls = false
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                allowFileAccess = true
+                allowContentAccess = true
+                allowFileAccessFromFileURLs = false
+                allowUniversalAccessFromFileURLs = false
+                mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                @Suppress("DEPRECATION")
+                databaseEnabled = true
+                setSupportZoom(false)
+                builtInZoomControls = false
+                displayZoomControls = false
+            }
         }
 
         splashView = View(this).apply {
@@ -117,7 +124,8 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        webView.loadUrl("file:///android_asset/www/index.html")
+        val startUrl = resolveStartUrl()
+        webView.loadUrl(startUrl)
     }
 
     override fun onDestroy() {
@@ -145,5 +153,22 @@ class MainActivity : AppCompatActivity() {
             </html>
         """.trimIndent()
         webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+    }
+
+    private fun resolveStartUrl(): String {
+        return try {
+            val configJson = assets.open("www/portl-config.json")
+                .bufferedReader()
+                .use { it.readText() }
+            val json = JSONObject(configJson)
+            val devUrl = json.optString("devUrl", "")
+            if (devUrl.isNotBlank()) {
+                devUrl
+            } else {
+                "file:///android_asset/www/index.html"
+            }
+        } catch (_: Exception) {
+            "file:///android_asset/www/index.html"
+        }
     }
 }

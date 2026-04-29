@@ -8,11 +8,11 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.portl.shell"
+        applicationId = "com.portl.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 10000000
+        versionName = "PORTL_VERSION_NAME_PLACEHOLDER_A"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
