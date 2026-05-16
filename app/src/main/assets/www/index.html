@@ -80,7 +80,7 @@
   <script>
     function bridgeGet(key) {
       const result = AndroidBridge.storageGet(key);
-      return result === "__androlocal_null__" ? null : result;
+      return result === "__portl_null__" ? null : result;
     }
 
     async function runTests() {

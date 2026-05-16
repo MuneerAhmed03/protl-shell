@@ -7,7 +7,7 @@ class AndroidBridge(
     private val databaseManager: DatabaseManager
 ) {
     @JavascriptInterface
-    fun storageGet(key: String): String = storageManager.get(key) ?: "__androlocal_null__"
+    fun storageGet(key: String): String = storageManager.get(key) ?: "__portl_null__"
 
     @JavascriptInterface
     fun storageSet(key: String, value: String): String = storageManager.set(key, value)

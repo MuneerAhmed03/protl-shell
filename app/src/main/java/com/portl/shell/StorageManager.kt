@@ -3,6 +3,7 @@ package com.portl.shell
 import android.content.Context
 import org.json.JSONArray
 import java.io.File
+import java.security.MessageDigest
 import java.nio.charset.StandardCharsets
 
 class StorageManager(context: Context) {
@@ -39,7 +40,7 @@ class StorageManager(context: Context) {
                 if (!storageDirectory.exists() && !storageDirectory.mkdirs()) {
                     throw IllegalStateException("Failed to create storage directory")
                 }
-                val targetFile = File(storageDirectory, "${key.hashCode()}.json")
+                val targetFile = File(storageDirectory, "${sha256(key)}.json")
                 targetFile.writeText(value)
                 if (!preferences.edit()
                     .putString(key, FILE_SENTINEL_PREFIX + targetFile.absolutePath)
@@ -108,6 +109,12 @@ class StorageManager(context: Context) {
         if (file.exists() && !file.delete()) {
             throw IllegalStateException("Failed to delete ${file.name}")
         }
+    }
+
+    private fun sha256(value: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(StandardCharsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
     }
 
     private companion object {

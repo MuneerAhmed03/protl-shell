@@ -79,8 +79,12 @@ class DatabaseManager(context: Context) {
     }
 
     private fun executeStatement(sql: String, params: List<String?>): String {
-        val bindArgs = params.map { it as Any? }.toTypedArray()
-        helper.writableDatabase.execSQL(sql, bindArgs)
+        if (params.isEmpty()) {
+            helper.writableDatabase.execSQL(sql)
+        } else {
+            val bindArgs = params.toTypedArray()
+            helper.writableDatabase.execSQL(sql, bindArgs)
+        }
         return JSONObject()
             .put("changes", 0)
             .put("lastInsertRowid", 0)
