@@ -6,6 +6,7 @@ OUTPUT_DIR="${PORTL_OUTPUT_DIR:-/work/output}"
 METADATA_PATH="${PORTL_METADATA_PATH:-${INPUT_DIR}/portl-build.json}"
 WEB_DIST_DIR="${PORTL_WEB_DIST_DIR:-${INPUT_DIR}/dist}"
 SHELL_TEMPLATE_DIR="/opt/portl/portl-shell"
+NORMALIZER_SCRIPT="/opt/portl/portl-shell/builder/normalize-web-assets.py"
 
 err() {
   echo "portl-builder: $*" >&2
@@ -61,6 +62,7 @@ xml_escape() {
 
 main() {
   require_cmd jq
+  require_cmd python3
   require_cmd zipalign
   require_cmd apksigner
   require_cmd aapt
@@ -68,17 +70,19 @@ main() {
   require_file "$METADATA_PATH"
   require_dir "$WEB_DIST_DIR"
   require_dir "$SHELL_TEMPLATE_DIR"
+  require_file "$NORMALIZER_SCRIPT"
 
   mkdir -p "$OUTPUT_DIR"
   rm -f "$OUTPUT_DIR/app.apk" "$OUTPUT_DIR/app-aligned.apk" "$OUTPUT_DIR/app-release-unsigned.apk" "$OUTPUT_DIR/build-report.json"
 
-  local package_name app_label version_name version_code keystore_path keystore_alias
+  local package_name app_label version_name version_code keystore_path keystore_alias webview_debug
   package_name="$(json_read '.packageName')"
   app_label="$(json_read '.appLabel')"
   version_name="$(json_read '.versionName')"
   version_code="$(json_read '.versionCode')"
   keystore_path="$(json_read '.keystore.path')"
   keystore_alias="$(json_read '.keystore.alias')"
+  webview_debug="$(jq -r '.webViewDebug // false' "$METADATA_PATH")"
   local keystore_password key_password
   keystore_password="$(json_read '.keystore.storePassword')"
   key_password="$(json_read '.keystore.keyPassword')"
@@ -89,6 +93,10 @@ main() {
   [[ "${#app_label}" -le 64 ]] || err "appLabel must be <= 64 characters."
   validate_package_name "$package_name"
   validate_version_name "$version_name"
+  case "$webview_debug" in
+    true|false) ;;
+    *) err "webViewDebug must be boolean true/false." ;;
+  esac
 
   if [[ "$keystore_path" != /* ]]; then
     keystore_path="${INPUT_DIR}/${keystore_path}"
@@ -114,6 +122,7 @@ main() {
     -e "s|^\\([[:space:]]*applicationId = \\).*|\\1\"${package_name}\"|" \
     -e "s|^\\([[:space:]]*versionCode = \\).*|\\1${version_code}|" \
     -e "s|^\\([[:space:]]*versionName = \\).*|\\1\"${version_name}\"|" \
+    -e "s|^[[:space:]]*buildConfigField(\"boolean\", \"PORTL_WEBVIEW_DEBUG\", \".*\")|        buildConfigField(\"boolean\", \"PORTL_WEBVIEW_DEBUG\", \"${webview_debug}\")|" \
     "$app_build_file"
 
   sed -i \
@@ -126,9 +135,18 @@ main() {
 </resources>
 EOF
 
+  local normalized_dist_dir normalize_report_path
+  normalized_dist_dir="${build_root}/normalized-dist"
+  normalize_report_path="${build_root}/normalize-report.json"
+  mkdir -p "$normalized_dist_dir"
+  cp -R "${WEB_DIST_DIR}/." "$normalized_dist_dir/"
+  python3 "$NORMALIZER_SCRIPT" \
+    --dist-dir "$normalized_dist_dir" \
+    --report-path "$normalize_report_path" || err "Web asset normalization failed."
+
   mkdir -p "${shell_dir}/app/src/main/assets/www"
   find "${shell_dir}/app/src/main/assets/www" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-  cp -R "${WEB_DIST_DIR}/." "${shell_dir}/app/src/main/assets/www/"
+  cp -R "${normalized_dist_dir}/." "${shell_dir}/app/src/main/assets/www/"
 
   printf "sdk.dir=%s\n" "${ANDROID_SDK_ROOT}" > "${shell_dir}/local.properties"
 
@@ -177,6 +195,9 @@ EOF
     --arg packageName "${package_name}" \
     --argjson versionCode "${version_code}" \
     --arg versionName "${version_name}" \
+    --argjson webViewDebug "${webview_debug}" \
+    --argjson rewrittenRefs "$(jq -r '.rewrittenRefs // 0' "$normalize_report_path")" \
+    --argjson filesTouched "$(jq -r '.filesTouched // 0' "$normalize_report_path")" \
     '{
       status: $status,
       apkPath: $apkPath,
@@ -184,7 +205,12 @@ EOF
       alignedApkPath: $alignedApkPath,
       packageName: $packageName,
       versionCode: $versionCode,
-      versionName: $versionName
+      versionName: $versionName,
+      webViewDebug: $webViewDebug,
+      normalization: {
+        rewrittenRefs: $rewrittenRefs,
+        filesTouched: $filesTouched
+      }
     }' > "${OUTPUT_DIR}/build-report.json"
 
   echo "portl-builder: APK ready at ${final_apk}"

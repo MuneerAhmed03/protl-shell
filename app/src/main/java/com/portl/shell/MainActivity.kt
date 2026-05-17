@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -17,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
@@ -28,6 +30,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         supportActionBar?.hide()
+        WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG || BuildConfig.PORTL_WEBVIEW_DEBUG)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
@@ -72,7 +75,18 @@ class MainActivity : AppCompatActivity() {
             "AndroidBridge"
         )
 
+        val assetLoader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                return assetLoader.shouldInterceptRequest(request.url)
+            }
+
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 splashView.visibility = View.VISIBLE
             }
@@ -165,10 +179,14 @@ class MainActivity : AppCompatActivity() {
             if (devUrl.isNotBlank()) {
                 devUrl
             } else {
-                "file:///android_asset/www/index.html"
+                ASSET_LOADER_INDEX_URL
             }
         } catch (_: Exception) {
-            "file:///android_asset/www/index.html"
+            ASSET_LOADER_INDEX_URL
         }
+    }
+
+    private companion object {
+        const val ASSET_LOADER_INDEX_URL = "https://appassets.androidplatform.net/assets/www/index.html"
     }
 }

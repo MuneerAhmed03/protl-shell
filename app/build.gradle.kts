@@ -13,6 +13,7 @@ android {
         targetSdk = 34
         versionCode = 10000000
         versionName = "PORTL_VERSION_NAME_PLACEHOLDER_A"
+        buildConfigField("boolean", "PORTL_WEBVIEW_DEBUG", "false")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -24,6 +25,10 @@ android {
                 "proguard-rules.pro"
             )
         }
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -40,5 +45,6 @@ android {
 dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.webkit:webkit:1.11.0")
     testImplementation("junit:junit:4.13.2")
 }

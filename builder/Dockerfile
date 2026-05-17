@@ -28,6 +28,7 @@ RUN apt-get update \
         curl \
         git \
         jq \
+        python3 \
         unzip \
         zip \
         openssl \
@@ -58,7 +59,9 @@ COPY portl-shell/ /opt/portl/portl-shell/
 
 # Point Gradle/AGP to the SDK path inside the image.
 RUN printf "sdk.dir=%s\n" "${ANDROID_SDK_ROOT}" > /opt/portl/portl-shell/local.properties \
-    && chmod +x /opt/portl/portl-shell/gradlew /opt/portl/portl-shell/builder/build-apk.sh
+    && chmod +x /opt/portl/portl-shell/gradlew \
+        /opt/portl/portl-shell/builder/build-apk.sh \
+        /opt/portl/portl-shell/builder/normalize-web-assets.py
 
 RUN chown -R portl:portl /opt/portl /work /home/portl
 
