@@ -75,7 +75,7 @@ main() {
   mkdir -p "$OUTPUT_DIR"
   rm -f "$OUTPUT_DIR/app.apk" "$OUTPUT_DIR/app-aligned.apk" "$OUTPUT_DIR/app-release-unsigned.apk" "$OUTPUT_DIR/build-report.json"
 
-  local package_name app_label version_name version_code keystore_path keystore_alias webview_debug
+  local package_name app_label version_name version_code keystore_path keystore_alias webview_debug dev_url
   package_name="$(json_read '.packageName')"
   app_label="$(json_read '.appLabel')"
   version_name="$(json_read '.versionName')"
@@ -83,6 +83,7 @@ main() {
   keystore_path="$(json_read '.keystore.path')"
   keystore_alias="$(json_read '.keystore.alias')"
   webview_debug="$(jq -r '.webViewDebug // false' "$METADATA_PATH")"
+  dev_url="$(jq -r '.devUrl // ""' "$METADATA_PATH")"
   local keystore_password key_password
   keystore_password="$(json_read '.keystore.storePassword')"
   key_password="$(json_read '.keystore.keyPassword')"
@@ -97,6 +98,9 @@ main() {
     true|false) ;;
     *) err "webViewDebug must be boolean true/false." ;;
   esac
+  if [[ -n "$dev_url" && ! "$dev_url" =~ ^https?:// ]]; then
+    err "devUrl must be an http(s) URL."
+  fi
 
   if [[ "$keystore_path" != /* ]]; then
     keystore_path="${INPUT_DIR}/${keystore_path}"
@@ -147,6 +151,10 @@ EOF
   mkdir -p "${shell_dir}/app/src/main/assets/www"
   find "${shell_dir}/app/src/main/assets/www" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
   cp -R "${normalized_dist_dir}/." "${shell_dir}/app/src/main/assets/www/"
+  if [[ -n "$dev_url" ]]; then
+    jq -n --arg devUrl "$dev_url" '{ devUrl: $devUrl }' \
+      > "${shell_dir}/app/src/main/assets/www/portl-config.json"
+  fi
 
   printf "sdk.dir=%s\n" "${ANDROID_SDK_ROOT}" > "${shell_dir}/local.properties"
 
@@ -196,6 +204,7 @@ EOF
     --argjson versionCode "${version_code}" \
     --arg versionName "${version_name}" \
     --argjson webViewDebug "${webview_debug}" \
+    --arg devUrl "${dev_url}" \
     --argjson rewrittenRefs "$(jq -r '.rewrittenRefs // 0' "$normalize_report_path")" \
     --argjson filesTouched "$(jq -r '.filesTouched // 0' "$normalize_report_path")" \
     '{
@@ -207,6 +216,7 @@ EOF
       versionCode: $versionCode,
       versionName: $versionName,
       webViewDebug: $webViewDebug,
+      devUrl: (if $devUrl == "" then null else $devUrl end),
       normalization: {
         rewrittenRefs: $rewrittenRefs,
         filesTouched: $filesTouched
