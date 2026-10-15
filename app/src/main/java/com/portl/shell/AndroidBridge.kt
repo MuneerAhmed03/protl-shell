@@ -23,4 +23,8 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun dbQuery(sql: String, paramsJson: String?): String = databaseManager.query(sql, paramsJson)
+
+    @JavascriptInterface
+    fun dbQueryRaw(sql: String, paramsJson: String?, method: String): String =
+        databaseManager.queryRaw(sql, paramsJson, method)
 }
